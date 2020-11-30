@@ -13,17 +13,43 @@ class DataSource(Enum):
     YAHOO = "YAHOO"
 
 class DataHandler(metaclass=ABCMeta):
+    """
+    DataHandler is an abstract base class providing an interface for
+    all subsequent (inherited) data handlers (both live and historic).
+
+    The goal of a (derived) DataHandler object is to output a generated
+    set of bars (OLHCVI) for each symbol requested. 
+
+    This will replicate how a live strategy would function as current
+    market data would be sent "down the pipe". Thus a historic and live
+    system will be treated identically by the rest of the backtesting suite.
+    """
     __metaclass__ = ABCMeta
 
     @abstractmethod
-    def get_latest_data(self, symbol, N=1):
-        raise NotImplementedError
+    def get_latest_bars(self, symbol, N=1):
+        """
+        Returns the last N 
+        from the latest_symbol list,
+        or fewer if less bars are available.
+        """
+        raise NotImplementedError("Should implement get_latest_bars()")
 
     @abstractmethod
-    def update_latest_data(self):
-        raise NotImplementedError
+    def update_bars(self):
+        """
+        Pushes the latest bar to the latest symbol structure
+        for all symbols in the symbol list.
+        """
+        raise NotImplementedError("Should implement update_bars()")
 
 class HistoricCSVDataHandler(DataHandler):
+    """
+    HistoricCSVDataHandler is designed to read CSV files for
+    each requested symbol from disk and provide an interface
+    to obtain the "latest" bar in a manner identical to a live
+    trading interface. 
+    """
     def __init__(self, events, csv_dir, symbol_list, source=DataSource.NASDAQ):
         self.events = events
         self.csv_dir = csv_dir
@@ -41,6 +67,13 @@ class HistoricCSVDataHandler(DataHandler):
         self._open_convert_csv_files(source)
 
     def _open_convert_csv_files(self, source):
+        """
+        Opens the CSV files from the data directory, converting
+        them into pandas DataFrames within a symbol dictionary.
+
+        For this handler it will be assumed that the data is
+        taken from DTN IQFeed. Thus its format will be respected.
+        """
         combined_index = None
         for symbol in self.symbol_list:
             if source == DataSource.NASDAQ:
@@ -61,6 +94,10 @@ class HistoricCSVDataHandler(DataHandler):
             self.symbol_data[symbol] = self.symbol_dataframe[symbol].iterrows()
 
     def _get_new_data(self, symbol):
+        """
+        Returns the latest bar from the data feed as a tuple of 
+        (sybmbol, datetime, open, low, high, close, volume).
+        """
         for row in self.symbol_data[symbol]:
             yield tuple([symbol, row[0], row[1][0]])
 
